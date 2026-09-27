@@ -19,16 +19,7 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 
-	// -----------------------------------------------------------------------------
-	// Main render loop
-	//
-	// Repeat this simple picture-making job:
-	// 1. Get a free swapchain picture.
-	// 2. Write down commands that clear it purple.
-	// 3. Send those commands to the GPU.
-	// 4. Wait until the GPU is done.
-	// 5. Show that picture in the window.
-	// -----------------------------------------------------------------------------
+	// main loop
 	while (!glfwWindowShouldClose(glfw.window)) {
 		glfwPollEvents();
 

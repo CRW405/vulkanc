@@ -163,10 +163,14 @@ static VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR *capabilities)
 	}
 
 	VkExtent2D actualExtent = { VENGINE_WINDOW_WIDTH, VENGINE_WINDOW_HEIGHT };
-	if (actualExtent.width < capabilities->minImageExtent.width) actualExtent.width = capabilities->minImageExtent.width;
-	if (actualExtent.width > capabilities->maxImageExtent.width) actualExtent.width = capabilities->maxImageExtent.width;
-	if (actualExtent.height < capabilities->minImageExtent.height) actualExtent.height = capabilities->minImageExtent.height;
-	if (actualExtent.height > capabilities->maxImageExtent.height) actualExtent.height = capabilities->maxImageExtent.height;
+	if (actualExtent.width < capabilities->minImageExtent.width)
+		actualExtent.width = capabilities->minImageExtent.width;
+	if (actualExtent.width > capabilities->maxImageExtent.width)
+		actualExtent.width = capabilities->maxImageExtent.width;
+	if (actualExtent.height < capabilities->minImageExtent.height)
+		actualExtent.height = capabilities->minImageExtent.height;
+	if (actualExtent.height > capabilities->maxImageExtent.height)
+		actualExtent.height = capabilities->maxImageExtent.height;
 	return actualExtent;
 }
 
@@ -226,7 +230,8 @@ static bool selectPhysicalDevice(vEngine *engine) {
 	}
 
 	VkPhysicalDevice *devices = malloc(sizeof(VkPhysicalDevice) * deviceCount);
-	if (devices == NULL) return false;
+	if (devices == NULL)
+		return false;
 	vkEnumeratePhysicalDevices(engine->instance, &deviceCount, devices);
 	for (uint32_t i = 0; i < deviceCount; i++) {
 		if (isDeviceSuitable(devices[i], engine->surface)) {
@@ -256,12 +261,14 @@ static bool createLogicalDevice(vEngine *engine, QueueFamilyIndices indices) {
 	// the program can send drawing jobs to the GPU.
 	// -----------------------------------------------------------------------------
 	float queuePriority = 1.0f;
-	VkDeviceQueueCreateInfo queueCreateInfos[2] = { {
-		.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
-		.queueFamilyIndex = indices.graphicsFamily,
-		.queueCount = 1,
-		.pQueuePriorities = &queuePriority,
-	} };
+	VkDeviceQueueCreateInfo queueCreateInfos[2] = {
+		{
+         .sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
+         .queueFamilyIndex = indices.graphicsFamily,
+         .queueCount = 1,
+         .pQueuePriorities = &queuePriority,
+		 }
+	};
 	uint32_t queueCreateInfoCount = 1;
 	if (indices.graphicsFamily != indices.presentFamily) {
 		queueCreateInfos[1] = (VkDeviceQueueCreateInfo){
@@ -334,7 +341,8 @@ static bool createSwapchain(vEngine *engine, QueueFamilyIndices indices) {
 	};
 	if (vkCreateSwapchainKHR(engine->device, &createInfo, NULL, &engine->swapchain) != VK_SUCCESS) {
 		fprintf(stderr, "Failed to create swap chain\n");
-		free(support.formats); free(support.presentModes);
+		free(support.formats);
+		free(support.presentModes);
 		return false;
 	}
 	vkGetSwapchainImagesKHR(engine->device, engine->swapchain, &engine->swapchainImageCount, NULL);
@@ -342,7 +350,8 @@ static bool createSwapchain(vEngine *engine, QueueFamilyIndices indices) {
 	engine->swapchainImageViews = calloc(engine->swapchainImageCount, sizeof(VkImageView));
 	engine->swapchainFramebuffers = calloc(engine->swapchainImageCount, sizeof(VkFramebuffer));
 	if (engine->swapchainImages == NULL || engine->swapchainImageViews == NULL || engine->swapchainFramebuffers == NULL) {
-		free(support.formats); free(support.presentModes);
+		free(support.formats);
+		free(support.presentModes);
 		fprintf(stderr, "Failed to allocate swapchain resources\n");
 		return false;
 	}
@@ -361,11 +370,13 @@ static bool createSwapchain(vEngine *engine, QueueFamilyIndices indices) {
 		};
 		if (vkCreateImageView(engine->device, &viewInfo, NULL, &engine->swapchainImageViews[i]) != VK_SUCCESS) {
 			fprintf(stderr, "Failed to create image view %u\n", i);
-			free(support.formats); free(support.presentModes);
+			free(support.formats);
+			free(support.presentModes);
 			return false;
 		}
 	}
-	free(support.formats); free(support.presentModes);
+	free(support.formats);
+	free(support.presentModes);
 	printf("Image views created successfully\n");
 	return true;
 }
@@ -381,10 +392,14 @@ static bool createRenderPassAndFramebuffers(vEngine *engine) {
 	// for each swapchain picture.
 	// -----------------------------------------------------------------------------
 	VkAttachmentDescription colorAttachment = {
-		.format = engine->swapchainImageFormat, .samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR, .storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE, .stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED, .finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+		.format = engine->swapchainImageFormat,
+		.samples = VK_SAMPLE_COUNT_1_BIT,
+		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
+		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
+		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
+		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
+		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
+		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 	};
 	VkAttachmentReference colorReference = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
 	VkSubpassDescription subpass = { .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS, .colorAttachmentCount = 1, .pColorAttachments = &colorReference };
@@ -396,9 +411,13 @@ static bool createRenderPassAndFramebuffers(vEngine *engine) {
 	for (uint32_t i = 0; i < engine->swapchainImageCount; i++) {
 		VkImageView attachments[] = { engine->swapchainImageViews[i] };
 		VkFramebufferCreateInfo framebufferInfo = {
-			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO, .renderPass = engine->renderPass,
-			.attachmentCount = 1, .pAttachments = attachments, .width = engine->swapchainExtent.width,
-			.height = engine->swapchainExtent.height, .layers = 1,
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = engine->renderPass,
+			.attachmentCount = 1,
+			.pAttachments = attachments,
+			.width = engine->swapchainExtent.width,
+			.height = engine->swapchainExtent.height,
+			.layers = 1,
 		};
 		if (vkCreateFramebuffer(engine->device, &framebufferInfo, NULL, &engine->swapchainFramebuffers[i]) != VK_SUCCESS) {
 			fprintf(stderr, "Failed to create framebuffer %u\n", i);
@@ -422,32 +441,245 @@ static bool createCommandResources(vEngine *engine, uint32_t graphicsFamily) {
 		return false;
 	}
 	VkCommandBufferAllocateInfo allocInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, .commandPool = engine->commandPool, .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY, .commandBufferCount = 1 };
-	if (vkAllocateCommandBuffers(engine->device, &allocInfo, &engine->commandBuffer) != VK_SUCCESS) return false;
+	if (vkAllocateCommandBuffers(engine->device, &allocInfo, &engine->commandBuffer) != VK_SUCCESS)
+		return false;
 
 	VkSemaphoreCreateInfo semaphoreInfo = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT };
 	if (vkCreateSemaphore(engine->device, &semaphoreInfo, NULL, &engine->imageAvailableSemaphore) != VK_SUCCESS ||
-	    vkCreateFence(engine->device, &fenceInfo, NULL, &engine->inFlightFence) != VK_SUCCESS) return false;
+	    vkCreateFence(engine->device, &fenceInfo, NULL, &engine->inFlightFence) != VK_SUCCESS)
+		return false;
 	engine->renderFinishedSemaphores = calloc(engine->swapchainImageCount, sizeof(VkSemaphore));
-	if (engine->renderFinishedSemaphores == NULL) return false;
+	if (engine->renderFinishedSemaphores == NULL)
+		return false;
 	for (uint32_t i = 0; i < engine->swapchainImageCount; i++) {
-		if (vkCreateSemaphore(engine->device, &semaphoreInfo, NULL, &engine->renderFinishedSemaphores[i]) != VK_SUCCESS) return false;
+		if (vkCreateSemaphore(engine->device, &semaphoreInfo, NULL, &engine->renderFinishedSemaphores[i]) != VK_SUCCESS)
+			return false;
 	}
 	return true;
 }
 
+// -----------------------------------------------------------------------------
+// Shaders
+//
+// A shader is a small program that runs on the GPU. Shaders are written in GLSL, then
+// compiled to SPIR-V, which is a binary format that Vulkan can understand. The shader
+// is loaded into the program as a byte array, then passed to Vulkan to create a shader
+// module.
+// -----------------------------------------------------------------------------
+
+static char *readFile(const char *filename, size_t *outSize) {
+	FILE *file = fopen(filename, "rb");
+	if (file == NULL) {
+		fprintf(stderr, "Failed to open file: %s\n", filename);
+		return NULL;
+	}
+	if (fseek(file, 0, SEEK_END) != 0) {
+		fprintf(stderr, "Failed to seek file: %s\n", filename);
+		fclose(file);
+		return NULL;
+	}
+	long fileSize = ftell(file);
+	if (fileSize < 0) {
+		fprintf(stderr, "Failed to determine size for file: %s\n", filename);
+		fclose(file);
+		return NULL;
+	}
+	if (fseek(file, 0, SEEK_SET) != 0) {
+		fprintf(stderr, "Failed to rewind file: %s\n", filename);
+		fclose(file);
+		return NULL;
+	}
+
+	char *buffer = malloc((size_t)fileSize);
+	if (buffer == NULL) {
+		fprintf(stderr, "Failed to allocate memory for file: %s\n", filename);
+		fclose(file);
+		return NULL;
+	}
+	const size_t readBytes = fread(buffer, 1, (size_t)fileSize, file);
+	if (readBytes != (size_t)fileSize) {
+		fprintf(stderr, "Failed to read file: %s\n", filename);
+		free(buffer);
+		fclose(file);
+		return NULL;
+	}
+	fclose(file);
+	*outSize = (size_t)fileSize;
+	return buffer;
+}
+
+static VkShaderModule createShaderModule(VkDevice device, const char *code, size_t size) {
+	VkShaderModuleCreateInfo createInfo = {
+		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+		.codeSize = size,
+		.pCode = (const uint32_t *)code,
+	};
+	VkShaderModule shaderModule;
+	if (vkCreateShaderModule(device, &createInfo, NULL, &shaderModule) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to create shader module\n");
+		return VK_NULL_HANDLE;
+	}
+	return shaderModule;
+}
+
+static bool createGraphicsPipeline(vEngine *engine) {
+	size_t vertSize = 0, fragSize = 0;
+	char *vertCode = readFile("./shaders/triangle.vert.spv", &vertSize);
+	char *fragCode = readFile("./shaders/triangle.frag.spv", &fragSize);
+	if (vertCode == NULL || fragCode == NULL) {
+		free(vertCode);
+		free(fragCode);
+		return false;
+	}
+
+	VkShaderModule vertShaderModule = createShaderModule(engine->device, vertCode, vertSize);
+	VkShaderModule fragShaderModule = createShaderModule(engine->device, fragCode, fragSize);
+	free(vertCode);
+	free(fragCode);
+	if (vertShaderModule == VK_NULL_HANDLE || fragShaderModule == VK_NULL_HANDLE) {
+		return false;
+	}
+
+	// a shader stage is a single programmable stage in the graphics pipeline, such as vertex or fragment
+	VkPipelineShaderStageCreateInfo vertShaderStageInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage = VK_SHADER_STAGE_VERTEX_BIT,
+		.module = vertShaderModule,
+		.pName = "main",
+	};
+
+	VkPipelineShaderStageCreateInfo fragShaderStageInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+		.stage = VK_SHADER_STAGE_FRAGMENT_BIT,
+		.module = fragShaderModule,
+		.pName = "main",
+	};
+
+	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
+
+	// a vertex input state describes the format of the vertex data that will be passed to the vertex shader
+	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+		.vertexBindingDescriptionCount = 0,
+		.vertexAttributeDescriptionCount = 0,
+	};
+
+	// a input assembly state describes how the vertices will be assembled into primitives (e.g. triangles, lines, points)
+	VkPipelineInputAssemblyStateCreateInfo inputAssembly = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+		.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		.primitiveRestartEnable = VK_FALSE,
+	};
+
+	// a viewport state describes the region of the framebuffer that will be rendered to
+	VkViewport viewport = {
+		.x = 0.0f,
+		.y = 0.0f,
+		.width = (float)engine->swapchainExtent.width,
+		.height = (float)engine->swapchainExtent.height,
+		.minDepth = 0.0f,
+		.maxDepth = 1.0f,
+	};
+
+	// a scissor state describes the region of the framebuffer that will be affected by rendering
+	VkRect2D scissor = {
+		.offset = { 0, 0 },
+		.extent = engine->swapchainExtent,
+	};
+
+	VkPipelineViewportStateCreateInfo viewportState = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+		.viewportCount = 1,
+		.pViewports = &viewport,
+		.scissorCount = 1,
+		.pScissors = &scissor,
+	};
+
+	// a rasterization state describes how the primitives will be rasterized into fragments
+	VkPipelineRasterizationStateCreateInfo rasterizer = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+		.depthClampEnable = VK_FALSE,
+		.rasterizerDiscardEnable = VK_FALSE,
+		.polygonMode = VK_POLYGON_MODE_FILL,
+		.lineWidth = 1.0f,
+		.cullMode = VK_CULL_MODE_BACK_BIT,
+		.frontFace = VK_FRONT_FACE_CLOCKWISE,
+		.depthBiasEnable = VK_FALSE,
+	};
+
+	// a multisample state describes how the fragments will be sampled and combined
+	VkPipelineMultisampleStateCreateInfo multisampling = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
+		.sampleShadingEnable = VK_FALSE,
+		.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT,
+	};
+
+	// a color blend state describes how the fragments will be blended with the existing framebuffer contents
+	VkPipelineColorBlendAttachmentState colorBlendAttachment = {
+		.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT,
+		.blendEnable = VK_FALSE,
+	};
+	VkPipelineColorBlendStateCreateInfo colorBlending = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+		.logicOpEnable = VK_FALSE,
+		.attachmentCount = 1,
+		.pAttachments = &colorBlendAttachment,
+	};
+
+	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
+		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+	};
+	if (vkCreatePipelineLayout(engine->device, &pipelineLayoutInfo, NULL, &engine->pipelineLayout) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to create pipeline layout\n");
+		vkDestroyShaderModule(engine->device, vertShaderModule, NULL);
+		vkDestroyShaderModule(engine->device, fragShaderModule, NULL);
+		return false;
+	}
+
+	VkGraphicsPipelineCreateInfo pipelineInfo = {
+		.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
+		.stageCount = 2,
+		.pStages = shaderStages,
+		.pVertexInputState = &vertexInputInfo,
+		.pInputAssemblyState = &inputAssembly,
+		.pViewportState = &viewportState,
+		.pRasterizationState = &rasterizer,
+		.pMultisampleState = &multisampling,
+		.pColorBlendState = &colorBlending,
+		.layout = engine->pipelineLayout,
+		.renderPass = engine->renderPass,
+		.subpass = 0,
+	};
+
+	if (vkCreateGraphicsPipelines(engine->device, VK_NULL_HANDLE, 1, &pipelineInfo, NULL, &engine->graphicsPipeline) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to create graphics pipeline\n");
+		vkDestroyShaderModule(engine->device, vertShaderModule, NULL);
+		vkDestroyShaderModule(engine->device, fragShaderModule, NULL);
+		return false;
+	}
+
+	vkDestroyShaderModule(engine->device, vertShaderModule, NULL);
+	vkDestroyShaderModule(engine->device, fragShaderModule, NULL);
+	printf("Graphics pipeline created successfully\n");
+	return true;
+}
+
 bool vEngineCreate(vEngine *engine, GLFWwindow *window) {
-	if (engine == NULL || window == NULL || !createInstance(engine)) return false;
+	if (engine == NULL || window == NULL || !createInstance(engine))
+		return false;
 	if (glfwCreateWindowSurface(engine->instance, window, NULL, &engine->surface) != VK_SUCCESS) {
 		fprintf(stderr, "Failed to create window surface\n");
 		return false;
 	}
-	if (!selectPhysicalDevice(engine)) return false;
+	if (!selectPhysicalDevice(engine))
+		return false;
 	QueueFamilyIndices indices = findQueueFamilies(engine->physicalDevice, engine->surface);
 	return createLogicalDevice(engine, indices) &&
 	       createSwapchain(engine, indices) &&
 	       createRenderPassAndFramebuffers(engine) &&
-	       createCommandResources(engine, indices.graphicsFamily);
+	       createCommandResources(engine, indices.graphicsFamily) &&
+	       createGraphicsPipeline(engine);
 }
 
 // -----------------------------------------------------------------------------
@@ -466,18 +698,26 @@ void vEngineDrawFrame(vEngine *engine) {
 	vkResetFences(engine->device, 1, &engine->inFlightFence);
 	uint32_t imageIndex;
 	VkResult result = vkAcquireNextImageKHR(engine->device, engine->swapchain, UINT64_MAX, engine->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
-	if (result != VK_SUCCESS) return;
+	if (result != VK_SUCCESS)
+		return;
 
 	vkResetCommandBuffer(engine->commandBuffer, 0);
 	VkCommandBufferBeginInfo beginInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 	vkBeginCommandBuffer(engine->commandBuffer, &beginInfo);
 	VkClearValue clearColor = { { { 0.5f, 0.0f, 0.5f, 1.0f } } }; // rgba
 	VkRenderPassBeginInfo renderPassInfo = {
-		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO, .renderPass = engine->renderPass,
-		.framebuffer = engine->swapchainFramebuffers[imageIndex], .renderArea.extent = engine->swapchainExtent,
-		.clearValueCount = 1, .pClearValues = &clearColor,
+		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+		.renderPass = engine->renderPass,
+		.framebuffer = engine->swapchainFramebuffers[imageIndex],
+		.renderArea.extent = engine->swapchainExtent,
+		.clearValueCount = 1,
+		.pClearValues = &clearColor,
 	};
 	vkCmdBeginRenderPass(engine->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+
+	vkCmdBindPipeline(engine->commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, engine->graphicsPipeline);
+	vkCmdDraw(engine->commandBuffer, 3, 1, 0, 0); // Draw a the shader triangle
+
 	vkCmdEndRenderPass(engine->commandBuffer);
 	vkEndCommandBuffer(engine->commandBuffer);
 
@@ -485,14 +725,23 @@ void vEngineDrawFrame(vEngine *engine) {
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	VkSemaphore signalSemaphores[] = { engine->renderFinishedSemaphores[imageIndex] };
 	VkSubmitInfo submitInfo = {
-		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO, .waitSemaphoreCount = 1, .pWaitSemaphores = waitSemaphores,
-		.pWaitDstStageMask = waitStages, .commandBufferCount = 1, .pCommandBuffers = &engine->commandBuffer,
-		.signalSemaphoreCount = 1, .pSignalSemaphores = signalSemaphores,
+		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = waitSemaphores,
+		.pWaitDstStageMask = waitStages,
+		.commandBufferCount = 1,
+		.pCommandBuffers = &engine->commandBuffer,
+		.signalSemaphoreCount = 1,
+		.pSignalSemaphores = signalSemaphores,
 	};
 	vkQueueSubmit(engine->graphicsQueue, 1, &submitInfo, engine->inFlightFence);
 	VkPresentInfoKHR presentInfo = {
-		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, .waitSemaphoreCount = 1, .pWaitSemaphores = signalSemaphores,
-		.swapchainCount = 1, .pSwapchains = &engine->swapchain, .pImageIndices = &imageIndex,
+		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+		.waitSemaphoreCount = 1,
+		.pWaitSemaphores = signalSemaphores,
+		.swapchainCount = 1,
+		.pSwapchains = &engine->swapchain,
+		.pImageIndices = &imageIndex,
 	};
 	vkQueuePresentKHR(engine->presentQueue, &presentInfo);
 }
@@ -505,23 +754,38 @@ void vEngineDrawFrame(vEngine *engine) {
 // -----------------------------------------------------------------------------
 
 void vEngineDestroy(vEngine *engine) {
-	if (engine == NULL) return;
+	if (engine == NULL)
+		return;
 	if (engine->device != VK_NULL_HANDLE) {
 		vkDeviceWaitIdle(engine->device);
+		if (engine->graphicsPipeline != VK_NULL_HANDLE)
+			vkDestroyPipeline(engine->device, engine->graphicsPipeline, NULL);
+		if (engine->pipelineLayout != VK_NULL_HANDLE)
+			vkDestroyPipelineLayout(engine->device, engine->pipelineLayout, NULL);
 		for (uint32_t i = 0; i < engine->swapchainImageCount; i++) {
-			if (engine->swapchainFramebuffers != NULL) vkDestroyFramebuffer(engine->device, engine->swapchainFramebuffers[i], NULL);
-			if (engine->swapchainImageViews != NULL) vkDestroyImageView(engine->device, engine->swapchainImageViews[i], NULL);
-			if (engine->renderFinishedSemaphores != NULL) vkDestroySemaphore(engine->device, engine->renderFinishedSemaphores[i], NULL);
+			if (engine->swapchainFramebuffers != NULL)
+				vkDestroyFramebuffer(engine->device, engine->swapchainFramebuffers[i], NULL);
+			if (engine->swapchainImageViews != NULL)
+				vkDestroyImageView(engine->device, engine->swapchainImageViews[i], NULL);
+			if (engine->renderFinishedSemaphores != NULL)
+				vkDestroySemaphore(engine->device, engine->renderFinishedSemaphores[i], NULL);
 		}
-		if (engine->renderPass != VK_NULL_HANDLE) vkDestroyRenderPass(engine->device, engine->renderPass, NULL);
-		if (engine->commandPool != VK_NULL_HANDLE) vkDestroyCommandPool(engine->device, engine->commandPool, NULL);
-		if (engine->imageAvailableSemaphore != VK_NULL_HANDLE) vkDestroySemaphore(engine->device, engine->imageAvailableSemaphore, NULL);
-		if (engine->inFlightFence != VK_NULL_HANDLE) vkDestroyFence(engine->device, engine->inFlightFence, NULL);
-		if (engine->swapchain != VK_NULL_HANDLE) vkDestroySwapchainKHR(engine->device, engine->swapchain, NULL);
+		if (engine->renderPass != VK_NULL_HANDLE)
+			vkDestroyRenderPass(engine->device, engine->renderPass, NULL);
+		if (engine->commandPool != VK_NULL_HANDLE)
+			vkDestroyCommandPool(engine->device, engine->commandPool, NULL);
+		if (engine->imageAvailableSemaphore != VK_NULL_HANDLE)
+			vkDestroySemaphore(engine->device, engine->imageAvailableSemaphore, NULL);
+		if (engine->inFlightFence != VK_NULL_HANDLE)
+			vkDestroyFence(engine->device, engine->inFlightFence, NULL);
+		if (engine->swapchain != VK_NULL_HANDLE)
+			vkDestroySwapchainKHR(engine->device, engine->swapchain, NULL);
 		vkDestroyDevice(engine->device, NULL);
 	}
-	if (engine->surface != VK_NULL_HANDLE && engine->instance != VK_NULL_HANDLE) vkDestroySurfaceKHR(engine->instance, engine->surface, NULL);
-	if (engine->instance != VK_NULL_HANDLE) vkDestroyInstance(engine->instance, NULL);
+	if (engine->surface != VK_NULL_HANDLE && engine->instance != VK_NULL_HANDLE)
+		vkDestroySurfaceKHR(engine->instance, engine->surface, NULL);
+	if (engine->instance != VK_NULL_HANDLE)
+		vkDestroyInstance(engine->instance, NULL);
 	free(engine->swapchainImages);
 	free(engine->swapchainImageViews);
 	free(engine->swapchainFramebuffers);

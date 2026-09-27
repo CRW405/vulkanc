@@ -30,6 +30,10 @@ typedef struct vEngine {
 	VkRenderPass renderPass;
 	VkCommandPool commandPool;
 	VkCommandBuffer commandBuffer;
+
+	VkPipelineLayout pipelineLayout;
+	VkPipeline graphicsPipeline;
+
 	VkSemaphore imageAvailableSemaphore;
 	VkSemaphore *renderFinishedSemaphores;
 	VkFence inFlightFence;
