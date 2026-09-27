@@ -25,10 +25,11 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 
+	float triangle1Size = 1.0f;
 	const Vertex triangleVertices[] = {
-		{ .position = { 0.0f, -0.5f, 0.0f }, .color = { 1.0f, 0.0f, 0.0f } },
-		{ .position = { 0.5f, 0.5f, 0.0f },  .color = { 0.0f, 1.0f, 0.0f } },
-		{ .position = { -0.5f, 0.5f, 0.0f }, .color = { 0.0f, 0.0f, 1.0f } },
+		{ .position = { 0.0f, -triangle1Size, 0.0f }, .color = { 1.0f, 0.0f, 0.0f } },
+		{ .position = { 0.5f, triangle1Size, 0.0f },  .color = { 0.0f, 1.0f, 0.0f } },
+		{ .position = { -triangle1Size, 0.5f, 0.0f }, .color = { 0.0f, 0.0f, 1.0f } },
 	};
 	if (!vEngineCreateVertexBuffer(&engine, triangleVertices, 3)) {
 		fprintf(stderr, "Failed to create triangle vertex buffer\n");
