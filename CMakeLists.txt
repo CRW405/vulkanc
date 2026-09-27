@@ -7,8 +7,8 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 
 set(APP VulkanC)
 
-file(GLOB SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
-file(GLOB HEADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
+file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.c)
+file(GLOB_RECURSE HEADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/*.h)
 file(GLOB VERT_SHADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders/*.vert)
 file(GLOB FRAG_SHADERS CONFIGURE_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/shaders/*.frag)
 
@@ -31,6 +31,11 @@ endforeach()
 add_custom_target(compile-shaders DEPENDS ${SHADER_OUTPUTS})
 
 add_executable(${APP} ${SOURCES} ${HEADERS})
+
+target_include_directories(${APP} PRIVATE
+	${CMAKE_CURRENT_SOURCE_DIR}/src
+	${CMAKE_CURRENT_SOURCE_DIR}/src/vEngine
+)
 
 target_compile_options(${APP} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
