@@ -27,10 +27,11 @@ int main(void) {
 
 	float triangle1Size = 1.0f;
 	const Vertex triangleVertices[] = {
-		{ .position = { 0.0f, -triangle1Size, 0.0f }, .color = { 1.0f, 0.0f, 0.0f } },
-		{ .position = { 0.5f, triangle1Size, 0.0f },  .color = { 0.0f, 1.0f, 0.0f } },
-		{ .position = { -triangle1Size, 0.5f, 0.0f }, .color = { 0.0f, 0.0f, 1.0f } },
+		{ .position = { 0.0f, -triangle1Size, 0.0f },          .color = { 1.0f, 0.0f, 0.0f } },
+		{ .position = { triangle1Size, triangle1Size, 0.0f },  .color = { 0.0f, 1.0f, 0.0f } },
+		{ .position = { -triangle1Size, triangle1Size, 0.0f }, .color = { 0.0f, 0.0f, 1.0f } },
 	};
+
 	if (!vEngineCreateVertexBuffer(&engine, triangleVertices, 3)) {
 		fprintf(stderr, "Failed to create triangle vertex buffer\n");
 		vEngineDestroy(&engine);
@@ -38,7 +39,7 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 
-	vEngineSetClearColor(&engine, 0.5f, 0.0f, 0.5f, 1.0f);
+	vEngineSetClearColor(&engine, 1.0f, 1.0f, 1.0f, 1.0f);
 	// vEngineLoadShaders(&engine, "./shaders/static_triangle.vert.spv", "./shaders/triangle.frag.spv");
 	vEngineLoadShaders(&engine, "./shaders/triangle.vert.spv", "./shaders/triangle.frag.spv");
 
