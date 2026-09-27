@@ -1,10 +1,24 @@
 #include "vEngine.h"
 
+void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
+	(void)width;
+	(void)height;
+	vEngine *engine = (vEngine *)glfwGetWindowUserPointer(window);
+	if (engine != NULL)
+		engine->framebufferResized = true;
+}
+
 bool vEngineCreate(vEngine *engine, GLFWwindow *window) {
-	if (engine == NULL || window == NULL || !vEngineCreateInstance(engine))
+	if (engine == NULL || window == NULL)
+		return false;
+	engine->window = window;
+	engine->framebufferResized = false;
+	glfwSetWindowUserPointer(window, engine);
+	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
+	if (!vEngineCreateInstance(engine))
 		return false;
 	vEngineSetClearColor(engine, 0.0f, 0.0f, 0.0f, 1.0f);
-	if (glfwCreateWindowSurface(engine->instance, window, NULL, &engine->surface) != VK_SUCCESS) {
+	if (glfwCreateWindowSurface(engine->instance, engine->window, NULL, &engine->surface) != VK_SUCCESS) {
 		fprintf(stderr, "Failed to create window surface\n");
 		return false;
 	}
@@ -12,7 +26,7 @@ bool vEngineCreate(vEngine *engine, GLFWwindow *window) {
 		return false;
 	QueueFamilyIndices indices = vEngineFindQueueFamilies(engine->physicalDevice, engine->surface);
 	return vEngineCreateLogicalDevice(engine, indices) &&
-	       vEngineCreateSwapchain(engine, window, indices) &&
+	       vEngineCreateSwapchain(engine, indices) &&
 	       vEngineCreateRenderPassAndFramebuffers(engine) &&
 	       vEngineCreateCommandResources(engine, indices.graphicsFamily);
 }
@@ -55,15 +69,32 @@ void vEngineSetClearColor(vEngine *engine, float red, float green, float blue, f
 
 void vEngineDrawFrame(vEngine *engine) {
 	vkWaitForFences(engine->device, 1, &engine->inFlightFence, VK_TRUE, UINT64_MAX);
-	vkResetFences(engine->device, 1, &engine->inFlightFence);
+
 	uint32_t imageIndex;
-	VkResult result = vkAcquireNextImageKHR(engine->device, engine->swapchain, UINT64_MAX, engine->imageAvailableSemaphore, VK_NULL_HANDLE, &imageIndex);
-	if (result != VK_SUCCESS)
+	VkResult result = vkAcquireNextImageKHR(
+	    engine->device,
+	    engine->swapchain,
+	    UINT64_MAX,
+	    engine->imageAvailableSemaphore,
+	    VK_NULL_HANDLE,
+	    &imageIndex);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+		vEngineRecreateSwapchain(engine);
 		return;
+	} else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+		fprintf(stderr, "Failed to acquire swap chain image!\n");
+		return;
+	}
+
+	// Only reset the fence *after* we successfully acquire the image and know
+	// we aren't going to bail early due to an outdated swapchain.
+	vkResetFences(engine->device, 1, &engine->inFlightFence);
 
 	vkResetCommandBuffer(engine->commandBuffer, 0);
 	VkCommandBufferBeginInfo beginInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 	vkBeginCommandBuffer(engine->commandBuffer, &beginInfo);
+
 	VkRenderPassBeginInfo renderPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = engine->renderPass,
@@ -90,6 +121,7 @@ void vEngineDrawFrame(vEngine *engine) {
 	VkSemaphore waitSemaphores[] = { engine->imageAvailableSemaphore };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	VkSemaphore signalSemaphores[] = { engine->renderFinishedSemaphores[imageIndex] };
+
 	VkSubmitInfo submitInfo = {
 		.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
 		.waitSemaphoreCount = 1,
@@ -100,7 +132,9 @@ void vEngineDrawFrame(vEngine *engine) {
 		.signalSemaphoreCount = 1,
 		.pSignalSemaphores = signalSemaphores,
 	};
+
 	vkQueueSubmit(engine->graphicsQueue, 1, &submitInfo, engine->inFlightFence);
+
 	VkPresentInfoKHR presentInfo = {
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 		.waitSemaphoreCount = 1,
@@ -109,7 +143,15 @@ void vEngineDrawFrame(vEngine *engine) {
 		.pSwapchains = &engine->swapchain,
 		.pImageIndices = &imageIndex,
 	};
-	vkQueuePresentKHR(engine->presentQueue, &presentInfo);
+
+	result = vkQueuePresentKHR(engine->presentQueue, &presentInfo);
+
+	if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR || engine->framebufferResized) {
+		engine->framebufferResized = false;
+		vEngineRecreateSwapchain(engine);
+	} else if (result != VK_SUCCESS) {
+		fprintf(stderr, "Failed to present swap chain image!\n");
+	}
 }
 
 // -----------------------------------------------------------------------------

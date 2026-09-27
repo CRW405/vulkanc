@@ -78,7 +78,10 @@ static VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR *capabilities,
 // Make a small line of pictures. While the screen shows one picture, Vulkan can
 // prepare another. Make a view for every picture so Vulkan knows how to use it.
 // -----------------------------------------------------------------------------
-bool vEngineCreateSwapchain(vEngine *engine, GLFWwindow *window, QueueFamilyIndices indices) {
+bool vEngineCreateSwapchain(vEngine *engine, QueueFamilyIndices indices) {
+	if (engine == NULL || engine->window == NULL)
+		return false;
+
 	SwapChainSupportDetails support = querySwapChainSupport(engine->physicalDevice, engine->surface);
 	if (support.formats == NULL || support.presentModes == NULL) {
 		free(support.formats);
@@ -88,7 +91,7 @@ bool vEngineCreateSwapchain(vEngine *engine, GLFWwindow *window, QueueFamilyIndi
 	}
 	VkSurfaceFormatKHR format = chooseSwapSurfaceFormat(support.formats, support.formatCount);
 	VkPresentModeKHR presentMode = chooseSwapPresentMode(support.presentModes, support.presentModeCount);
-	engine->swapchainExtent = chooseSwapExtent(&support.capabilities, window);
+	engine->swapchainExtent = chooseSwapExtent(&support.capabilities, engine->window);
 	engine->swapchainImageCount = support.capabilities.minImageCount + 1;
 	if (support.capabilities.maxImageCount > 0 && engine->swapchainImageCount > support.capabilities.maxImageCount)
 		engine->swapchainImageCount = support.capabilities.maxImageCount;
@@ -150,5 +153,67 @@ bool vEngineCreateSwapchain(vEngine *engine, GLFWwindow *window, QueueFamilyIndi
 	free(support.formats);
 	free(support.presentModes);
 	printf("Image views created successfully\n");
+	return true;
+}
+
+bool vEngineCleanupSwapchain(vEngine *engine) {
+	if (engine == NULL || engine->device == VK_NULL_HANDLE)
+		return false;
+
+	for (uint32_t i = 0; i < engine->swapchainImageCount; i++) {
+		if (engine->swapchainFramebuffers != NULL)
+			vkDestroyFramebuffer(engine->device, engine->swapchainFramebuffers[i], NULL);
+		if (engine->swapchainImageViews != NULL)
+			vkDestroyImageView(engine->device, engine->swapchainImageViews[i], NULL);
+	}
+	free(engine->swapchainImages);
+	free(engine->swapchainImageViews);
+	free(engine->swapchainFramebuffers);
+	engine->swapchainImages = NULL;
+	engine->swapchainImageViews = NULL;
+	engine->swapchainFramebuffers = NULL;
+
+	if (engine->swapchain != VK_NULL_HANDLE) {
+		vkDestroySwapchainKHR(engine->device, engine->swapchain, NULL);
+		engine->swapchain = VK_NULL_HANDLE;
+	}
+	return true;
+}
+
+bool vEngineRecreateSwapchain(vEngine *engine) {
+	int width = 0, height = 0;
+	glfwGetFramebufferSize(engine->window, &width, &height);
+	while (width == 0 || height == 0) {
+		glfwGetFramebufferSize(engine->window, &width, &height);
+		glfwWaitEvents();
+	}
+
+	vkDeviceWaitIdle(engine->device);
+
+	vEngineCleanupSwapchain(engine);
+
+	QueueFamilyIndices indices = vEngineFindQueueFamilies(engine->physicalDevice, engine->surface);
+	if (!vEngineCreateSwapchain(engine, indices)) {
+		return false;
+	}
+
+	// Recreate framebuffers to match the new image views and swapchain count
+	engine->swapchainFramebuffers = calloc(engine->swapchainImageCount, sizeof(VkFramebuffer));
+	for (uint32_t i = 0; i < engine->swapchainImageCount; i++) {
+		VkImageView attachments[] = { engine->swapchainImageViews[i] };
+		VkFramebufferCreateInfo framebufferInfo = {
+			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
+			.renderPass = engine->renderPass,
+			.attachmentCount = 1,
+			.pAttachments = attachments,
+			.width = engine->swapchainExtent.width,
+			.height = engine->swapchainExtent.height,
+			.layers = 1,
+		};
+		if (vkCreateFramebuffer(engine->device, &framebufferInfo, NULL, &engine->swapchainFramebuffers[i]) != VK_SUCCESS) {
+			fprintf(stderr, "Failed to recreate framebuffer %u\n", i);
+			return false;
+		}
+	}
 	return true;
 }

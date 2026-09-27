@@ -19,6 +19,10 @@
 // ============================================================================
 
 typedef struct vEngine {
+	// step 0: glfw window handle
+	GLFWwindow *window;
+	bool framebufferResized;
+
 	// Step 1: Vulkan instance and presentation surface.
 	VkInstance instance;
 	VkSurfaceKHR surface;
@@ -131,7 +135,9 @@ bool vEngineSelectPhysicalDevice(vEngine *engine);
 bool vEngineCreateLogicalDevice(vEngine *engine, QueueFamilyIndices indices);
 
 // Step 3: Creates swapchain images and their image views.
-bool vEngineCreateSwapchain(vEngine *engine, GLFWwindow *window, QueueFamilyIndices indices);
+bool vEngineCreateSwapchain(vEngine *engine, QueueFamilyIndices indices);
+bool vEngineRecreateSwapchain(vEngine *engine);
+bool vEngineCleanupSwapchain(vEngine *engine);
 
 // Step 4: Creates the render pass and one framebuffer per swapchain image.
 bool vEngineCreateRenderPassAndFramebuffers(vEngine *engine);

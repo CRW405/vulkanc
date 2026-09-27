@@ -26,7 +26,7 @@ bool glfwEngineCreate(glfwEngine *engine, const glfwEngineConfig *config) {
 	}
 
 	glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-	glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
+	glfwWindowHint(GLFW_RESIZABLE, GLFW_TRUE);
 	glfwWindowHintString(GLFW_WAYLAND_APP_ID, "make-me-float");
 
 	engine->window = glfwCreateWindow(config->width, config->height, config->title, NULL, NULL);

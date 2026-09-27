@@ -4,6 +4,15 @@
 - Learning Vulkan in C because I hate C++.
 - The ultimate goal of this learning project is to create a simple graphical engine.
 
+## Current TODOs:
+
+- Window resizing and swapchain recreation.
+- Frames in flight (multiple frames being processed at once).
+- Push constants and transformation matrices.
+- Text rendering.
+- 2D scenes
+- 3D scenes
+
 ## Notes
 
 ### (Simplified) Vulkan Setup
