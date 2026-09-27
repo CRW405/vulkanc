@@ -1,122 +1,46 @@
 #include "vEngine.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
 // -----------------------------------------------------------------------------
-// Render pass and framebuffer setup
-// A render pass describes the attachments and operations used for one draw.
-// A framebuffer is a collection of attachments that are used as the destination for rendering.
+// Vertex input descriptions
 //
-// Tell Vulkan, "For each picture, start by clearing it, let drawing happen,
-// then leave the finished color ready for the screen." Build one framebuffer
-// for each swapchain picture.
+// The vertex input descriptions describe how the vertex data is laid out in memory
+// and how it will be passed to the vertex shader. The binding description describes
+// the rate at which vertex data is consumed, and the attribute descriptions describe
+// the format of each vertex attribute (position, color, etc.).
 // -----------------------------------------------------------------------------
-bool vEngineCreateRenderPassAndFramebuffers(vEngine *engine) {
-	VkAttachmentDescription colorAttachment = {
-		.format = engine->swapchainImageFormat,
-		.samples = VK_SAMPLE_COUNT_1_BIT,
-		.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR,
-		.storeOp = VK_ATTACHMENT_STORE_OP_STORE,
-		.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE,
-		.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE,
-		.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED,
-		.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+
+VkVertexInputBindingDescription vEngineGetVertexInputBindingDescription(void) {
+	VkVertexInputBindingDescription bindingDescription = {
+		.binding = 0,
+		.stride = sizeof(Vertex),
+		.inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
 	};
-	VkAttachmentReference colorReference = { 0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL };
-	VkSubpassDescription subpass = { .pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS, .colorAttachmentCount = 1, .pColorAttachments = &colorReference };
-	VkRenderPassCreateInfo renderPassInfo = { .sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO, .attachmentCount = 1, .pAttachments = &colorAttachment, .subpassCount = 1, .pSubpasses = &subpass };
-	if (vkCreateRenderPass(engine->device, &renderPassInfo, NULL, &engine->renderPass) != VK_SUCCESS) {
-		fprintf(stderr, "Failed to create render pass\n");
-		return false;
-	}
-	for (uint32_t i = 0; i < engine->swapchainImageCount; i++) {
-		VkImageView attachments[] = { engine->swapchainImageViews[i] };
-		VkFramebufferCreateInfo framebufferInfo = {
-			.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
-			.renderPass = engine->renderPass,
-			.attachmentCount = 1,
-			.pAttachments = attachments,
-			.width = engine->swapchainExtent.width,
-			.height = engine->swapchainExtent.height,
-			.layers = 1,
-		};
-		if (vkCreateFramebuffer(engine->device, &framebufferInfo, NULL, &engine->swapchainFramebuffers[i]) != VK_SUCCESS) {
-			fprintf(stderr, "Failed to create framebuffer %u\n", i);
-			return false;
-		}
-	}
-	return true;
+	return bindingDescription;
+}
+
+void vEngineGetVertexAttributeDescriptions(VkVertexInputAttributeDescription *attributeDescriptions) {
+	attributeDescriptions[0].binding = 0;
+	attributeDescriptions[0].location = 0;
+	attributeDescriptions[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attributeDescriptions[0].offset = offsetof(Vertex, position);
+
+	attributeDescriptions[1].binding = 0;
+	attributeDescriptions[1].location = 1;
+	attributeDescriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+	attributeDescriptions[1].offset = offsetof(Vertex, color);
 }
 
 // -----------------------------------------------------------------------------
-// Shaders
-//
-// A shader is a small program that runs on the GPU. Shaders are written in GLSL, then
-// compiled to SPIR-V, which is a binary format that Vulkan can understand. The shader
-// is loaded into the program as a byte array, then passed to Vulkan to create a shader
-// module.
+// Graphics pipeline setup
+// A graphics pipeline describes the steps that the GPU will take to render a frame.
+// The pipeline is created from a set of shader stages, fixed-function stages, and
+// pipeline state objects.
 // -----------------------------------------------------------------------------
 
-static char *readFile(const char *filename, size_t *outSize) {
-	FILE *file = fopen(filename, "rb");
-	if (file == NULL) {
-		fprintf(stderr, "Failed to open file: %s\n", filename);
-		return NULL;
-	}
-	if (fseek(file, 0, SEEK_END) != 0) {
-		fprintf(stderr, "Failed to seek file: %s\n", filename);
-		fclose(file);
-		return NULL;
-	}
-	long fileSize = ftell(file);
-	if (fileSize < 0) {
-		fprintf(stderr, "Failed to determine size for file: %s\n", filename);
-		fclose(file);
-		return NULL;
-	}
-	if (fseek(file, 0, SEEK_SET) != 0) {
-		fprintf(stderr, "Failed to rewind file: %s\n", filename);
-		fclose(file);
-		return NULL;
-	}
-
-	char *buffer = malloc((size_t)fileSize);
-	if (buffer == NULL) {
-		fprintf(stderr, "Failed to allocate memory for file: %s\n", filename);
-		fclose(file);
-		return NULL;
-	}
-	const size_t readBytes = fread(buffer, 1, (size_t)fileSize, file);
-	if (readBytes != (size_t)fileSize) {
-		fprintf(stderr, "Failed to read file: %s\n", filename);
-		free(buffer);
-		fclose(file);
-		return NULL;
-	}
-	fclose(file);
-	*outSize = (size_t)fileSize;
-	return buffer;
-}
-
-static VkShaderModule createShaderModule(VkDevice device, const char *code, size_t size) {
-	VkShaderModuleCreateInfo createInfo = {
-		.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
-		.codeSize = size,
-		.pCode = (const uint32_t *)code,
-	};
-	VkShaderModule shaderModule;
-	if (vkCreateShaderModule(device, &createInfo, NULL, &shaderModule) != VK_SUCCESS) {
-		fprintf(stderr, "Failed to create shader module\n");
-		return VK_NULL_HANDLE;
-	}
-	return shaderModule;
-}
-
-bool vEngineCreateGraphicsPipeline(vEngine *engine) {
+bool vEngineCreateGraphicsPipeline(vEngine *engine, const char *vertexShaderPath, const char *fragmentShaderPath) {
 	size_t vertSize = 0, fragSize = 0;
-	char *vertCode = readFile("./shaders/triangle.vert.spv", &vertSize);
-	char *fragCode = readFile("./shaders/triangle.frag.spv", &fragSize);
+	char *vertCode = readFile(vertexShaderPath, &vertSize);
+	char *fragCode = readFile(fragmentShaderPath, &fragSize);
 	if (vertCode == NULL || fragCode == NULL) {
 		free(vertCode);
 		free(fragCode);
@@ -149,10 +73,15 @@ bool vEngineCreateGraphicsPipeline(vEngine *engine) {
 	VkPipelineShaderStageCreateInfo shaderStages[] = { vertShaderStageInfo, fragShaderStageInfo };
 
 	// a vertex input state describes the format of the vertex data that will be passed to the vertex shader
+	VkVertexInputBindingDescription bindingDescription = vEngineGetVertexInputBindingDescription();
+	VkVertexInputAttributeDescription attributeDescriptions[2];
+	vEngineGetVertexAttributeDescriptions(attributeDescriptions);
 	VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
-		.vertexBindingDescriptionCount = 0,
-		.vertexAttributeDescriptionCount = 0,
+		.vertexBindingDescriptionCount = 1,
+		.pVertexBindingDescriptions = &bindingDescription,
+		.vertexAttributeDescriptionCount = 2,
+		.pVertexAttributeDescriptions = attributeDescriptions,
 	};
 
 	// a input assembly state describes how the vertices will be assembled into primitives (e.g. triangles, lines, points)

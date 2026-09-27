@@ -1,8 +1,5 @@
 #include "vEngine.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
 // -----------------------------------------------------------------------------
 // Swapchain helpers
 // A swapchain is a queue of images that are presented to the screen. The swapchain
@@ -52,12 +49,15 @@ static VkPresentModeKHR chooseSwapPresentMode(const VkPresentModeKHR *availableP
 	return VK_PRESENT_MODE_FIFO_KHR;
 }
 
-static VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR *capabilities) {
+static VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR *capabilities, GLFWwindow *window) {
 	if (capabilities->currentExtent.width != UINT32_MAX) {
 		return capabilities->currentExtent;
 	}
 
-	VkExtent2D actualExtent = { VENGINE_WINDOW_WIDTH, VENGINE_WINDOW_HEIGHT };
+	int width = 0;
+	int height = 0;
+	glfwGetFramebufferSize(window, &width, &height);
+	VkExtent2D actualExtent = { (uint32_t)width, (uint32_t)height };
 	if (actualExtent.width < capabilities->minImageExtent.width)
 		actualExtent.width = capabilities->minImageExtent.width;
 	if (actualExtent.width > capabilities->maxImageExtent.width)
@@ -78,7 +78,7 @@ static VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR *capabilities)
 // Make a small line of pictures. While the screen shows one picture, Vulkan can
 // prepare another. Make a view for every picture so Vulkan knows how to use it.
 // -----------------------------------------------------------------------------
-bool vEngineCreateSwapchain(vEngine *engine, QueueFamilyIndices indices) {
+bool vEngineCreateSwapchain(vEngine *engine, GLFWwindow *window, QueueFamilyIndices indices) {
 	SwapChainSupportDetails support = querySwapChainSupport(engine->physicalDevice, engine->surface);
 	if (support.formats == NULL || support.presentModes == NULL) {
 		free(support.formats);
@@ -88,7 +88,7 @@ bool vEngineCreateSwapchain(vEngine *engine, QueueFamilyIndices indices) {
 	}
 	VkSurfaceFormatKHR format = chooseSwapSurfaceFormat(support.formats, support.formatCount);
 	VkPresentModeKHR presentMode = chooseSwapPresentMode(support.presentModes, support.presentModeCount);
-	engine->swapchainExtent = chooseSwapExtent(&support.capabilities);
+	engine->swapchainExtent = chooseSwapExtent(&support.capabilities, window);
 	engine->swapchainImageCount = support.capabilities.minImageCount + 1;
 	if (support.capabilities.maxImageCount > 0 && engine->swapchainImageCount > support.capabilities.maxImageCount)
 		engine->swapchainImageCount = support.capabilities.maxImageCount;

@@ -1,8 +1,5 @@
 #include "vEngine.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
 // -----------------------------------------------------------------------------
 // Physical-device and queue-family helpers
 // A Queue Family is a group of queues that support a specific set of operations.
@@ -57,6 +54,7 @@ static bool isDeviceSuitable(VkPhysicalDevice device, VkSurfaceKHR surface) {
 // Introduce our program to Vulkan, turn on the tools we need, and connect Vulkan
 // to the window so Vulkan has a place to put pictures.
 // -----------------------------------------------------------------------------
+
 bool vEngineCreateInstance(vEngine *engine) {
 	if (vEngineEnableValidationLayers && !vEngineCheckValidationLayerSupport()) {
 		fprintf(stderr, "Validation layers requested, but not available!\n");
@@ -135,6 +133,7 @@ bool vEngineSelectPhysicalDevice(vEngine *engine) {
 // Choose the GPU's worker, give it a work line, and get that work line back so
 // the program can send drawing jobs to the GPU.
 // -----------------------------------------------------------------------------
+
 bool vEngineCreateLogicalDevice(vEngine *engine, QueueFamilyIndices indices) {
 	float queuePriority = 1.0f;
 	VkDeviceQueueCreateInfo queueCreateInfos[2] = {

@@ -1,9 +1,5 @@
 #include "vEngine.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 // -----------------------------------------------------------------------------
 // Validation layers
 // Vulkan does not include validation by default. Validation layers add helpful
@@ -45,5 +41,3 @@ bool vEngineCheckValidationLayerSupport(void) {
 	free(availableLayers);
 	return true;
 }
-
-// -----------------------------------------------------------------------------

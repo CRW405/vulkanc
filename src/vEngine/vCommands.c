@@ -1,8 +1,5 @@
 #include "vEngine.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
 // -----------------------------------------------------------------------------
 // Command buffer and synchronization setup
 // A command buffer is a sequence of commands that will be submitted to the GPU for execution.
@@ -10,6 +7,7 @@
 // Make a reusable instruction list and a few traffic lights. The traffic lights
 // stop the GPU from using a picture before it is ready or showing it too early.
 // -----------------------------------------------------------------------------
+
 bool vEngineCreateCommandResources(vEngine *engine, uint32_t graphicsFamily) {
 	VkCommandPoolCreateInfo poolInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, .queueFamilyIndex = graphicsFamily };
 	if (vkCreateCommandPool(engine->device, &poolInfo, NULL, &engine->commandPool) != VK_SUCCESS) {

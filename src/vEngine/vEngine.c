@@ -1,11 +1,9 @@
 #include "vEngine.h"
 
-#include <stdio.h>
-#include <stdlib.h>
-
 bool vEngineCreate(vEngine *engine, GLFWwindow *window) {
 	if (engine == NULL || window == NULL || !vEngineCreateInstance(engine))
 		return false;
+	vEngineSetClearColor(engine, 0.0f, 0.0f, 0.0f, 1.0f);
 	if (glfwCreateWindowSurface(engine->instance, window, NULL, &engine->surface) != VK_SUCCESS) {
 		fprintf(stderr, "Failed to create window surface\n");
 		return false;
@@ -14,10 +12,34 @@ bool vEngineCreate(vEngine *engine, GLFWwindow *window) {
 		return false;
 	QueueFamilyIndices indices = vEngineFindQueueFamilies(engine->physicalDevice, engine->surface);
 	return vEngineCreateLogicalDevice(engine, indices) &&
-	       vEngineCreateSwapchain(engine, indices) &&
+	       vEngineCreateSwapchain(engine, window, indices) &&
 	       vEngineCreateRenderPassAndFramebuffers(engine) &&
-	       vEngineCreateCommandResources(engine, indices.graphicsFamily) &&
-	       vEngineCreateGraphicsPipeline(engine);
+	       vEngineCreateCommandResources(engine, indices.graphicsFamily);
+}
+
+bool vEngineLoadShaders(vEngine *engine, const char *vertexShaderPath, const char *fragmentShaderPath) {
+	if (engine == NULL || engine->device == VK_NULL_HANDLE ||
+	    vertexShaderPath == NULL || fragmentShaderPath == NULL)
+		return false;
+
+	vkDeviceWaitIdle(engine->device);
+	if (engine->graphicsPipeline != VK_NULL_HANDLE)
+		vkDestroyPipeline(engine->device, engine->graphicsPipeline, NULL);
+	if (engine->pipelineLayout != VK_NULL_HANDLE)
+		vkDestroyPipelineLayout(engine->device, engine->pipelineLayout, NULL);
+	engine->graphicsPipeline = VK_NULL_HANDLE;
+	engine->pipelineLayout = VK_NULL_HANDLE;
+
+	return vEngineCreateGraphicsPipeline(engine, vertexShaderPath, fragmentShaderPath);
+}
+
+void vEngineSetClearColor(vEngine *engine, float red, float green, float blue, float alpha) {
+	if (engine == NULL)
+		return;
+	engine->clearColor.color.float32[0] = red;
+	engine->clearColor.color.float32[1] = green;
+	engine->clearColor.color.float32[2] = blue;
+	engine->clearColor.color.float32[3] = alpha;
 }
 
 // -----------------------------------------------------------------------------
@@ -42,19 +64,25 @@ void vEngineDrawFrame(vEngine *engine) {
 	vkResetCommandBuffer(engine->commandBuffer, 0);
 	VkCommandBufferBeginInfo beginInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
 	vkBeginCommandBuffer(engine->commandBuffer, &beginInfo);
-	VkClearValue clearColor = { { { 0.5f, 0.0f, 0.5f, 1.0f } } }; // rgba
 	VkRenderPassBeginInfo renderPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
 		.renderPass = engine->renderPass,
 		.framebuffer = engine->swapchainFramebuffers[imageIndex],
 		.renderArea.extent = engine->swapchainExtent,
 		.clearValueCount = 1,
-		.pClearValues = &clearColor,
+		.pClearValues = &engine->clearColor,
 	};
 	vkCmdBeginRenderPass(engine->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
-	vkCmdBindPipeline(engine->commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, engine->graphicsPipeline);
-	vkCmdDraw(engine->commandBuffer, 3, 1, 0, 0); // Draw a the shader triangle
+	if (engine->graphicsPipeline != VK_NULL_HANDLE &&
+	    engine->vertexBuffer != VK_NULL_HANDLE && engine->vertexCount > 0) {
+		vkCmdBindPipeline(engine->commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, engine->graphicsPipeline);
+
+		VkBuffer vertexBuffers[] = { engine->vertexBuffer };
+		VkDeviceSize offsets[] = { 0 };
+		vkCmdBindVertexBuffers(engine->commandBuffer, 0, 1, vertexBuffers, offsets);
+		vkCmdDraw(engine->commandBuffer, engine->vertexCount, 1, 0, 0);
+	}
 
 	vkCmdEndRenderPass(engine->commandBuffer);
 	vkEndCommandBuffer(engine->commandBuffer);
@@ -96,6 +124,10 @@ void vEngineDestroy(vEngine *engine) {
 		return;
 	if (engine->device != VK_NULL_HANDLE) {
 		vkDeviceWaitIdle(engine->device);
+		if (engine->vertexBuffer != VK_NULL_HANDLE)
+			vkDestroyBuffer(engine->device, engine->vertexBuffer, NULL);
+		if (engine->vertexBufferMemory != VK_NULL_HANDLE)
+			vkFreeMemory(engine->device, engine->vertexBufferMemory, NULL);
 		if (engine->graphicsPipeline != VK_NULL_HANDLE)
 			vkDestroyPipeline(engine->device, engine->graphicsPipeline, NULL);
 		if (engine->pipelineLayout != VK_NULL_HANDLE)

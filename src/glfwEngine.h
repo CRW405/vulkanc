@@ -8,9 +8,24 @@
 
 typedef struct glfwEngine {
 	GLFWwindow *window;
+	char title[256];
+	int fpsLimit;
+	double frameStartTime;
+	double fpsWindowStartTime;
+	unsigned int fpsFrameCount;
 } glfwEngine;
 
-bool glfwEngineCreate(glfwEngine *engine);
+typedef struct glfwEngineConfig {
+	int width;
+	int height;
+	const char *title;
+	// 0 disables frame limiting; a positive value caps frames per second.
+	int fpsLimit;
+} glfwEngineConfig;
+
+bool glfwEngineCreate(glfwEngine *engine, const glfwEngineConfig *config);
+void glfwEngineFrameStart(glfwEngine *engine);
+void glfwEngineFrameEnd(glfwEngine *engine);
 void glfwEngineDestroy(glfwEngine *engine);
 
 #endif
