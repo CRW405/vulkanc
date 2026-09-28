@@ -6,7 +6,6 @@
 
 ## Current TODOs:
 
-- Window resizing and swapchain recreation.
 - Frames in flight (multiple frames being processed at once).
 - Push constants and transformation matrices.
 - Text rendering.

@@ -18,10 +18,13 @@
 // Holds all Vulkan handles and resources owned by one engine instance.
 // ============================================================================
 
+#define MAX_FRAMES_IN_FLIGHT 2u
+
 typedef struct vEngine {
 	// step 0: glfw window handle
 	GLFWwindow *window;
 	bool framebufferResized;
+	uint32_t currentFrame;
 
 	// Step 1: Vulkan instance and presentation surface.
 	VkInstance instance;
@@ -45,7 +48,7 @@ typedef struct vEngine {
 	// Step 4: Render pass and command recording resources.
 	VkRenderPass renderPass;
 	VkCommandPool commandPool;
-	VkCommandBuffer commandBuffer;
+	VkCommandBuffer *commandBuffers;
 
 	// Step 5: Shader-backed graphics pipeline and vertex buffers.
 	VkPipelineLayout pipelineLayout;
@@ -55,9 +58,10 @@ typedef struct vEngine {
 	uint32_t vertexCount;
 
 	// Step 6: Per-frame synchronization and render clear color.
-	VkSemaphore imageAvailableSemaphore;
+	VkSemaphore *imageAvailableSemaphores;
 	VkSemaphore *renderFinishedSemaphores;
-	VkFence inFlightFence;
+	VkFence *inFlightFences;
+	VkFence *imagesInFlight;
 	VkClearValue clearColor;
 } vEngine;
 
@@ -144,6 +148,8 @@ bool vEngineCreateRenderPassAndFramebuffers(vEngine *engine);
 
 // Step 4: Creates command pool/buffer resources and frame synchronization.
 bool vEngineCreateCommandResources(vEngine *engine, uint32_t graphicsFamily);
+bool vEngineCreateRenderFinishedSemaphores(vEngine *engine);
+void vEngineDestroyRenderFinishedSemaphores(vEngine *engine);
 
 // Step 5: Loads shaders and creates the pipeline used for drawing.
 bool vEngineCreateGraphicsPipeline(vEngine *engine, const char *vertexShaderPath, const char *fragmentShaderPath);

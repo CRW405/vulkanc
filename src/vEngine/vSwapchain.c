@@ -190,10 +190,15 @@ bool vEngineRecreateSwapchain(vEngine *engine) {
 
 	vkDeviceWaitIdle(engine->device);
 
+	vEngineDestroyRenderFinishedSemaphores(engine);
 	vEngineCleanupSwapchain(engine);
 
 	QueueFamilyIndices indices = vEngineFindQueueFamilies(engine->physicalDevice, engine->surface);
 	if (!vEngineCreateSwapchain(engine, indices)) {
+		return false;
+	}
+	if (!vEngineCreateRenderFinishedSemaphores(engine)) {
+		fprintf(stderr, "Failed to recreate render-finished semaphores\n");
 		return false;
 	}
 

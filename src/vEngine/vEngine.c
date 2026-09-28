@@ -68,14 +68,16 @@ void vEngineSetClearColor(vEngine *engine, float red, float green, float blue, f
 // -----------------------------------------------------------------------------
 
 void vEngineDrawFrame(vEngine *engine) {
-	vkWaitForFences(engine->device, 1, &engine->inFlightFence, VK_TRUE, UINT64_MAX);
+	uint32_t frame = engine->currentFrame;
+	VkFence currentFrameFence = engine->inFlightFences[frame];
+	vkWaitForFences(engine->device, 1, &currentFrameFence, VK_TRUE, UINT64_MAX);
 
 	uint32_t imageIndex;
 	VkResult result = vkAcquireNextImageKHR(
 	    engine->device,
 	    engine->swapchain,
 	    UINT64_MAX,
-	    engine->imageAvailableSemaphore,
+	    engine->imageAvailableSemaphores[frame],
 	    VK_NULL_HANDLE,
 	    &imageIndex);
 
@@ -87,13 +89,16 @@ void vEngineDrawFrame(vEngine *engine) {
 		return;
 	}
 
-	// Only reset the fence *after* we successfully acquire the image and know
-	// we aren't going to bail early due to an outdated swapchain.
-	vkResetFences(engine->device, 1, &engine->inFlightFence);
+	if (engine->imagesInFlight[imageIndex] != VK_NULL_HANDLE) {
+		vkWaitForFences(engine->device, 1, &engine->imagesInFlight[imageIndex], VK_TRUE, UINT64_MAX);
+	}
+	engine->imagesInFlight[imageIndex] = currentFrameFence;
 
-	vkResetCommandBuffer(engine->commandBuffer, 0);
+	vkResetFences(engine->device, 1, &currentFrameFence);
+
+	vkResetCommandBuffer(engine->commandBuffers[frame], 0);
 	VkCommandBufferBeginInfo beginInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-	vkBeginCommandBuffer(engine->commandBuffer, &beginInfo);
+	vkBeginCommandBuffer(engine->commandBuffers[frame], &beginInfo);
 
 	VkRenderPassBeginInfo renderPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -103,22 +108,22 @@ void vEngineDrawFrame(vEngine *engine) {
 		.clearValueCount = 1,
 		.pClearValues = &engine->clearColor,
 	};
-	vkCmdBeginRenderPass(engine->commandBuffer, &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
+	vkCmdBeginRenderPass(engine->commandBuffers[frame], &renderPassInfo, VK_SUBPASS_CONTENTS_INLINE);
 
 	if (engine->graphicsPipeline != VK_NULL_HANDLE &&
 	    engine->vertexBuffer != VK_NULL_HANDLE && engine->vertexCount > 0) {
-		vkCmdBindPipeline(engine->commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, engine->graphicsPipeline);
+		vkCmdBindPipeline(engine->commandBuffers[frame], VK_PIPELINE_BIND_POINT_GRAPHICS, engine->graphicsPipeline);
 
 		VkBuffer vertexBuffers[] = { engine->vertexBuffer };
 		VkDeviceSize offsets[] = { 0 };
-		vkCmdBindVertexBuffers(engine->commandBuffer, 0, 1, vertexBuffers, offsets);
-		vkCmdDraw(engine->commandBuffer, engine->vertexCount, 1, 0, 0);
+		vkCmdBindVertexBuffers(engine->commandBuffers[frame], 0, 1, vertexBuffers, offsets);
+		vkCmdDraw(engine->commandBuffers[frame], engine->vertexCount, 1, 0, 0);
 	}
 
-	vkCmdEndRenderPass(engine->commandBuffer);
-	vkEndCommandBuffer(engine->commandBuffer);
+	vkCmdEndRenderPass(engine->commandBuffers[frame]);
+	vkEndCommandBuffer(engine->commandBuffers[frame]);
 
-	VkSemaphore waitSemaphores[] = { engine->imageAvailableSemaphore };
+	VkSemaphore waitSemaphores[] = { engine->imageAvailableSemaphores[frame] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
 	VkSemaphore signalSemaphores[] = { engine->renderFinishedSemaphores[imageIndex] };
 
@@ -128,12 +133,12 @@ void vEngineDrawFrame(vEngine *engine) {
 		.pWaitSemaphores = waitSemaphores,
 		.pWaitDstStageMask = waitStages,
 		.commandBufferCount = 1,
-		.pCommandBuffers = &engine->commandBuffer,
+		.pCommandBuffers = &engine->commandBuffers[frame],
 		.signalSemaphoreCount = 1,
 		.pSignalSemaphores = signalSemaphores,
 	};
 
-	vkQueueSubmit(engine->graphicsQueue, 1, &submitInfo, engine->inFlightFence);
+	vkQueueSubmit(engine->graphicsQueue, 1, &submitInfo, currentFrameFence);
 
 	VkPresentInfoKHR presentInfo = {
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
@@ -152,6 +157,8 @@ void vEngineDrawFrame(vEngine *engine) {
 	} else if (result != VK_SUCCESS) {
 		fprintf(stderr, "Failed to present swap chain image!\n");
 	}
+
+	engine->currentFrame = (engine->currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 // -----------------------------------------------------------------------------
@@ -179,17 +186,24 @@ void vEngineDestroy(vEngine *engine) {
 				vkDestroyFramebuffer(engine->device, engine->swapchainFramebuffers[i], NULL);
 			if (engine->swapchainImageViews != NULL)
 				vkDestroyImageView(engine->device, engine->swapchainImageViews[i], NULL);
-			if (engine->renderFinishedSemaphores != NULL)
-				vkDestroySemaphore(engine->device, engine->renderFinishedSemaphores[i], NULL);
 		}
+		vEngineDestroyRenderFinishedSemaphores(engine);
 		if (engine->renderPass != VK_NULL_HANDLE)
 			vkDestroyRenderPass(engine->device, engine->renderPass, NULL);
+		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			if (engine->imageAvailableSemaphores != NULL &&
+			    engine->imageAvailableSemaphores[i] != VK_NULL_HANDLE)
+				vkDestroySemaphore(engine->device, engine->imageAvailableSemaphores[i], NULL);
+		}
+		if (engine->commandBuffers != NULL)
+			vkFreeCommandBuffers(engine->device, engine->commandPool,
+					     MAX_FRAMES_IN_FLIGHT, engine->commandBuffers);
 		if (engine->commandPool != VK_NULL_HANDLE)
 			vkDestroyCommandPool(engine->device, engine->commandPool, NULL);
-		if (engine->imageAvailableSemaphore != VK_NULL_HANDLE)
-			vkDestroySemaphore(engine->device, engine->imageAvailableSemaphore, NULL);
-		if (engine->inFlightFence != VK_NULL_HANDLE)
-			vkDestroyFence(engine->device, engine->inFlightFence, NULL);
+		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			if (engine->inFlightFences != NULL && engine->inFlightFences[i] != VK_NULL_HANDLE)
+				vkDestroyFence(engine->device, engine->inFlightFences[i], NULL);
+		}
 		if (engine->swapchain != VK_NULL_HANDLE)
 			vkDestroySwapchainKHR(engine->device, engine->swapchain, NULL);
 		vkDestroyDevice(engine->device, NULL);
@@ -202,5 +216,9 @@ void vEngineDestroy(vEngine *engine) {
 	free(engine->swapchainImageViews);
 	free(engine->swapchainFramebuffers);
 	free(engine->renderFinishedSemaphores);
+	free(engine->imageAvailableSemaphores);
+	free(engine->commandBuffers);
+	free(engine->inFlightFences);
+	free(engine->imagesInFlight);
 	*engine = (vEngine){ 0 };
 }
