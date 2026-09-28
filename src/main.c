@@ -41,7 +41,12 @@ int main(void) {
 
 	vEngineSetClearColor(&engine, 1.0f, 1.0f, 1.0f, 1.0f);
 	// vEngineLoadShaders(&engine, "./shaders/static_triangle.vert.spv", "./shaders/triangle.frag.spv");
-	vEngineLoadShaders(&engine, "./shaders/triangle.vert.spv", "./shaders/triangle.frag.spv");
+	if (!vEngineLoadShaders(&engine, "./shaders/triangle.vert.spv", "./shaders/triangle.frag.spv")) {
+		fprintf(stderr, "Failed to load triangle shaders\n");
+		vEngineDestroy(&engine);
+		glfwEngineDestroy(&glfw);
+		return EXIT_FAILURE;
+	}
 
 	// main loop
 	while (!glfwWindowShouldClose(glfw.window)) {

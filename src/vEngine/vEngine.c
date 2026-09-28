@@ -1,5 +1,21 @@
 #include "vEngine.h"
 
+static void replaceFrameFence(vEngine *engine, uint32_t frame, VkFence oldFence) {
+	VkFenceCreateInfo fenceInfo = {
+		.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+		.flags = VK_FENCE_CREATE_SIGNALED_BIT,
+	};
+	VkFence replacementFence = VK_NULL_HANDLE;
+	if (vkCreateFence(engine->device, &fenceInfo, NULL, &replacementFence) == VK_SUCCESS) {
+		for (uint32_t i = 0; i < engine->swapchainImageCount; i++) {
+			if (engine->imagesInFlight[i] == oldFence)
+				engine->imagesInFlight[i] = VK_NULL_HANDLE;
+		}
+		vkDestroyFence(engine->device, oldFence, NULL);
+		engine->inFlightFences[frame] = replacementFence;
+	}
+}
+
 void framebufferResizeCallback(GLFWwindow *window, int width, int height) {
 	(void)width;
 	(void)height;
@@ -94,11 +110,25 @@ void vEngineDrawFrame(vEngine *engine) {
 	}
 	engine->imagesInFlight[imageIndex] = currentFrameFence;
 
-	vkResetFences(engine->device, 1, &currentFrameFence);
+	if (vkResetFences(engine->device, 1, &currentFrameFence) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to reset frame fence\n");
+		engine->imagesInFlight[imageIndex] = VK_NULL_HANDLE;
+		return;
+	}
 
-	vkResetCommandBuffer(engine->commandBuffers[frame], 0);
+	if (vkResetCommandBuffer(engine->commandBuffers[frame], 0) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to reset command buffer\n");
+		engine->imagesInFlight[imageIndex] = VK_NULL_HANDLE;
+		replaceFrameFence(engine, frame, currentFrameFence);
+		return;
+	}
 	VkCommandBufferBeginInfo beginInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO };
-	vkBeginCommandBuffer(engine->commandBuffers[frame], &beginInfo);
+	if (vkBeginCommandBuffer(engine->commandBuffers[frame], &beginInfo) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to begin command buffer\n");
+		engine->imagesInFlight[imageIndex] = VK_NULL_HANDLE;
+		replaceFrameFence(engine, frame, currentFrameFence);
+		return;
+	}
 
 	VkRenderPassBeginInfo renderPassInfo = {
 		.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
@@ -121,7 +151,12 @@ void vEngineDrawFrame(vEngine *engine) {
 	}
 
 	vkCmdEndRenderPass(engine->commandBuffers[frame]);
-	vkEndCommandBuffer(engine->commandBuffers[frame]);
+	if (vkEndCommandBuffer(engine->commandBuffers[frame]) != VK_SUCCESS) {
+		fprintf(stderr, "Failed to record command buffer\n");
+		engine->imagesInFlight[imageIndex] = VK_NULL_HANDLE;
+		replaceFrameFence(engine, frame, currentFrameFence);
+		return;
+	}
 
 	VkSemaphore waitSemaphores[] = { engine->imageAvailableSemaphores[frame] };
 	VkPipelineStageFlags waitStages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
@@ -138,7 +173,13 @@ void vEngineDrawFrame(vEngine *engine) {
 		.pSignalSemaphores = signalSemaphores,
 	};
 
-	vkQueueSubmit(engine->graphicsQueue, 1, &submitInfo, currentFrameFence);
+	result = vkQueueSubmit(engine->graphicsQueue, 1, &submitInfo, currentFrameFence);
+	if (result != VK_SUCCESS) {
+		fprintf(stderr, "Failed to submit draw command buffer\n");
+		engine->imagesInFlight[imageIndex] = VK_NULL_HANDLE;
+		replaceFrameFence(engine, frame, currentFrameFence);
+		return;
+	}
 
 	VkPresentInfoKHR presentInfo = {
 		.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,

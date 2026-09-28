@@ -37,6 +37,7 @@ void vEngineDestroyRenderFinishedSemaphores(vEngine *engine) {
 // -----------------------------------------------------------------------------
 
 bool vEngineCreateCommandResources(vEngine *engine, uint32_t graphicsFamily) {
+	bool commandBuffersAllocated = false;
 	VkCommandPoolCreateInfo poolInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO, .flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT, .queueFamilyIndex = graphicsFamily };
 	if (vkCreateCommandPool(engine->device, &poolInfo, NULL, &engine->commandPool) != VK_SUCCESS) {
 		fprintf(stderr, "Failed to create command pool\n");
@@ -44,10 +45,13 @@ bool vEngineCreateCommandResources(vEngine *engine, uint32_t graphicsFamily) {
 	}
 	engine->commandBuffers = calloc(MAX_FRAMES_IN_FLIGHT, sizeof(VkCommandBuffer));
 	if (engine->commandBuffers == NULL)
-		return false;
+		goto fail;
 	VkCommandBufferAllocateInfo allocInfo = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO, .commandPool = engine->commandPool, .level = VK_COMMAND_BUFFER_LEVEL_PRIMARY, .commandBufferCount = MAX_FRAMES_IN_FLIGHT };
-	if (vkAllocateCommandBuffers(engine->device, &allocInfo, engine->commandBuffers) != VK_SUCCESS)
-		return false;
+	commandBuffersAllocated = vkAllocateCommandBuffers(engine->device, &allocInfo, engine->commandBuffers) == VK_SUCCESS;
+	if (!commandBuffersAllocated) {
+		fprintf(stderr, "Failed to allocate command buffers\n");
+		goto fail;
+	}
 
 	VkSemaphoreCreateInfo semaphoreInfo = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	VkFenceCreateInfo fenceInfo = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO, .flags = VK_FENCE_CREATE_SIGNALED_BIT };
@@ -57,18 +61,44 @@ bool vEngineCreateCommandResources(vEngine *engine, uint32_t graphicsFamily) {
 	engine->imagesInFlight = calloc(engine->swapchainImageCount, sizeof(VkFence));
 	if (engine->imageAvailableSemaphores == NULL ||
 	    engine->inFlightFences == NULL || engine->imagesInFlight == NULL)
-		return false;
+		goto fail;
 
 	for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
 		if (vkCreateSemaphore(engine->device, &semaphoreInfo, NULL, &engine->imageAvailableSemaphores[i]) != VK_SUCCESS ||
-		    vkCreateFence(engine->device, &fenceInfo, NULL, &engine->inFlightFences[i]) != VK_SUCCESS)
-			return false;
-	}
-	for (uint32_t i = 0; i < engine->swapchainImageCount; i++) {
-		engine->imagesInFlight[i] = VK_NULL_HANDLE;
+		    vkCreateFence(engine->device, &fenceInfo, NULL, &engine->inFlightFences[i]) != VK_SUCCESS) {
+			fprintf(stderr, "Failed to create frame synchronization objects\n");
+			goto fail;
+		}
 	}
 	if (!vEngineCreateRenderFinishedSemaphores(engine))
-		return false;
+		goto fail;
 	engine->currentFrame = 0;
 	return true;
+
+fail:
+	vEngineDestroyRenderFinishedSemaphores(engine);
+	if (engine->device != VK_NULL_HANDLE) {
+		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+			if (engine->imageAvailableSemaphores != NULL &&
+			    engine->imageAvailableSemaphores[i] != VK_NULL_HANDLE)
+				vkDestroySemaphore(engine->device, engine->imageAvailableSemaphores[i], NULL);
+			if (engine->inFlightFences != NULL && engine->inFlightFences[i] != VK_NULL_HANDLE)
+				vkDestroyFence(engine->device, engine->inFlightFences[i], NULL);
+		}
+		if (commandBuffersAllocated)
+			vkFreeCommandBuffers(engine->device, engine->commandPool,
+					     MAX_FRAMES_IN_FLIGHT, engine->commandBuffers);
+		if (engine->commandPool != VK_NULL_HANDLE)
+			vkDestroyCommandPool(engine->device, engine->commandPool, NULL);
+	}
+	free(engine->imageAvailableSemaphores);
+	free(engine->inFlightFences);
+	free(engine->imagesInFlight);
+	free(engine->commandBuffers);
+	engine->imageAvailableSemaphores = NULL;
+	engine->inFlightFences = NULL;
+	engine->imagesInFlight = NULL;
+	engine->commandBuffers = NULL;
+	engine->commandPool = VK_NULL_HANDLE;
+	return false;
 }

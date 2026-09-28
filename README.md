@@ -6,7 +6,6 @@
 
 ## Current TODOs:
 
-- Frames in flight (multiple frames being processed at once).
 - Push constants and transformation matrices.
 - Text rendering.
 - 2D scenes
@@ -18,7 +17,7 @@
 
 Vulkan is a low-level API, so the application explicitly creates the objects
 needed to connect a program to a display and submit work to the GPU. The setup
-in `attempt3/main.c` follows this order:
+in `src/main.c` and `src/vEngine/` follows this order:
 
 #### Window
 
@@ -64,6 +63,9 @@ in `attempt3/main.c` follows this order:
 - The application chooses the image format, presentation mode, extent, and
   number of images based on what the surface supports.
 - Rendering can happen in one image while another image is being displayed.
+- When the window is resized, or when image acquisition/presentation reports
+  that the swapchain is out of date, the device is idled and the swapchain,
+  image views, framebuffers, and swapchain-dependent semaphores are recreated.
 
 #### Image Views
 
@@ -89,17 +91,22 @@ in `attempt3/main.c` follows this order:
 
 - Semaphores coordinate work between the image acquisition, graphics
   submission, and presentation operations.
-- A fence lets the CPU wait until the submitted frame has finished.
+- Two frames can be in flight at the same time. Each frame has its own command
+  buffer, image-available semaphore, and fence.
+- Each swapchain image tracks the fence of the frame currently using it, so an
+  image is not reused while the GPU is still rendering it.
 - Synchronization prevents the CPU or GPU from reusing resources while they
   are still in use.
 
 #### Render Loop
 
-1. Wait for the previous frame's fence.
+1. Wait for the current frame's fence.
 2. Acquire an available swapchain image.
-3. Record commands for that image.
-4. Submit the commands to the graphics queue.
-5. Present the completed image to the surface.
+3. Wait for the fence currently associated with that image, if any.
+4. Record commands into the current frame's command buffer.
+5. Submit the commands to the graphics queue and signal the frame fence.
+6. Present the completed image to the surface.
+7. Advance to the next frame slot.
 
 #### Cleanup
 
@@ -110,45 +117,53 @@ in `attempt3/main.c` follows this order:
 
 ### (Simplified) Graphics Pipeline
 
-- Shaders are programs that run on the GPU. They are written in GLSL or HLSL, C like languages. They are compiled into SPIR-V and then run on the GPU.
-- The non shader parts of the pipeline are handled by the GPU driver and are not programmable. They are fixed function but can be configured.
+- Shaders are programs that run on the GPU. They are written in GLSL or HLSL,
+  C-like languages, compiled into SPIR-V, and then loaded into Vulkan shader
+  modules.
+- The non-shader parts of the pipeline are handled by the GPU driver and are
+  fixed-function stages that can be configured.
 
-#### Vertex / Index Buffer // Input
+#### Vertex Buffer // Input
 
-- Contain input data such point positons, colors, normals, texture data, etc.
-- Basic example could be a list of points. (x_1, y_1), (x_2, y_2), ...
+- Vertex buffers contain input data such as positions, colors, normals, and
+  texture coordinates.
+- This project currently uploads a small array of colored triangle vertices
+  into a device-local vertex buffer.
 - Think OBJ files.
 
 #### Input Assembler
 
-- Takes our input's vertices and assembles them into primitives (usually a triangle).
+- Takes the input vertices and assembles them into primitives, usually
+  triangles.
 
 #### Vertex Shader
 
 - Runs once per vertex.
-- Performs transformations on our vertices. Ex: 3d to 2d projection.
-- Can operate on multiple spaces such as world space, model space, view space, clip space.
-- Can pass other data such as color or texture data.
+- Performs transformations on vertices, such as 3D-to-2D projection.
+- Can operate on multiple spaces such as model, world, view, and clip space.
+- Can pass data such as colors or texture coordinates to later stages.
 
 #### Rasterization
 
 - Turns primitives into fragments.
-- A fragment is used to represent and create a pixel. Doesnt necessarily mean it will be a pixel, but it is a candidate for one.
-- Other operations can take place in order to figure out what frasgments turn into what pixels.
-- Like coloring in a triangle.
+- A fragment is a candidate for a pixel; later tests determine whether and how
+  it contributes to the framebuffer.
+- This is similar to coloring in a triangle one fragment at a time.
 
 #### Fragment Shader
 
 - Runs once per fragment.
-- Takes things like lighting, textures, etc and figures out what color those pixels should be.
+- Uses inputs such as colors, lighting, and textures to determine fragment
+  output.
 - This is where things become pretty.
 
 #### Color Blending
 
-- Self explanatory.
-- Think transparency.
+- Combines fragment output with the existing framebuffer color.
+- Blending can be configured for effects such as transparency.
 
 #### Frame Buffer / Image
 
-- In actual Vulkan, a frame buffer and image are two seperate things.
-- Turn our final fragments into pixels and (possibly) display them.
+- In Vulkan, a framebuffer and an image are separate objects.
+- The swapchain image is the color attachment that receives the final
+  fragments and is eventually presented to the window.

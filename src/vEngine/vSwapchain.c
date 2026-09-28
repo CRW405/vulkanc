@@ -192,9 +192,16 @@ bool vEngineRecreateSwapchain(vEngine *engine) {
 
 	vEngineDestroyRenderFinishedSemaphores(engine);
 	vEngineCleanupSwapchain(engine);
+	free(engine->imagesInFlight);
+	engine->imagesInFlight = NULL;
 
 	QueueFamilyIndices indices = vEngineFindQueueFamilies(engine->physicalDevice, engine->surface);
 	if (!vEngineCreateSwapchain(engine, indices)) {
+		return false;
+	}
+	engine->imagesInFlight = calloc(engine->swapchainImageCount, sizeof(VkFence));
+	if (engine->imagesInFlight == NULL) {
+		fprintf(stderr, "Failed to allocate image-in-flight tracking\n");
 		return false;
 	}
 	if (!vEngineCreateRenderFinishedSemaphores(engine)) {
@@ -204,6 +211,12 @@ bool vEngineRecreateSwapchain(vEngine *engine) {
 
 	// Recreate framebuffers to match the new image views and swapchain count
 	engine->swapchainFramebuffers = calloc(engine->swapchainImageCount, sizeof(VkFramebuffer));
+	if (engine->swapchainFramebuffers == NULL) {
+		fprintf(stderr, "Failed to allocate swapchain framebuffers\n");
+		vEngineDestroyRenderFinishedSemaphores(engine);
+		vEngineCleanupSwapchain(engine);
+		return false;
+	}
 	for (uint32_t i = 0; i < engine->swapchainImageCount; i++) {
 		VkImageView attachments[] = { engine->swapchainImageViews[i] };
 		VkFramebufferCreateInfo framebufferInfo = {
@@ -217,6 +230,12 @@ bool vEngineRecreateSwapchain(vEngine *engine) {
 		};
 		if (vkCreateFramebuffer(engine->device, &framebufferInfo, NULL, &engine->swapchainFramebuffers[i]) != VK_SUCCESS) {
 			fprintf(stderr, "Failed to recreate framebuffer %u\n", i);
+			for (uint32_t j = 0; j < i; j++)
+				vkDestroyFramebuffer(engine->device, engine->swapchainFramebuffers[j], NULL);
+			free(engine->swapchainFramebuffers);
+			engine->swapchainFramebuffers = NULL;
+			vEngineDestroyRenderFinishedSemaphores(engine);
+			vEngineCleanupSwapchain(engine);
 			return false;
 		}
 	}
