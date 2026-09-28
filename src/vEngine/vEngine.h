@@ -12,6 +12,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "cglm/cglm.h"
+
 // ============================================================================
 // Engine state
 //
@@ -63,6 +65,7 @@ typedef struct vEngine {
 	VkFence *inFlightFences;
 	VkFence *imagesInFlight;
 	VkClearValue clearColor;
+	mat4 transform;
 } vEngine;
 
 // ============================================================================
@@ -104,6 +107,10 @@ bool vEngineLoadShaders(vEngine *engine, const char *vertexShaderPath, const cha
 
 // Sets the color used to clear the render target each frame.
 void vEngineSetClearColor(vEngine *engine, float red, float green, float blue, float alpha);
+
+// Sets or resets the vertex transformation uploaded as a push constant.
+void vEngineSetTransform(vEngine *engine, mat4 transform);
+void vEngineResetTransform(vEngine *engine);
 
 // Acquires a swapchain image, records/submits commands, and presents it.
 void vEngineDrawFrame(vEngine *engine);

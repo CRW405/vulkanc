@@ -11,6 +11,8 @@ typedef struct glfwEngine {
 	char title[256];
 	int fpsLimit;
 	double frameStartTime;
+	double previousFrameTime;
+	double deltaTime;
 	double fpsWindowStartTime;
 	unsigned int fpsFrameCount;
 } glfwEngine;
@@ -25,6 +27,7 @@ typedef struct glfwEngineConfig {
 
 bool glfwEngineCreate(glfwEngine *engine, const glfwEngineConfig *config);
 void glfwEngineFrameStart(glfwEngine *engine);
+double glfwEngineGetDeltaTime(const glfwEngine *engine);
 void glfwEngineFrameEnd(glfwEngine *engine);
 void glfwEngineDestroy(glfwEngine *engine);
 

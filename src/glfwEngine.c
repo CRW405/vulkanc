@@ -38,7 +38,8 @@ bool glfwEngineCreate(glfwEngine *engine, const glfwEngineConfig *config) {
 	strncpy(engine->title, config->title, sizeof(engine->title) - 1);
 	engine->title[sizeof(engine->title) - 1] = '\0';
 	engine->fpsLimit = config->fpsLimit;
-	engine->fpsWindowStartTime = glfwGetTime();
+	engine->previousFrameTime = glfwGetTime();
+	engine->fpsWindowStartTime = engine->previousFrameTime;
 	glfwSetWindowSize(engine->window, config->width, config->height);
 
 	return true;
@@ -48,6 +49,14 @@ void glfwEngineFrameStart(glfwEngine *engine) {
 	if (engine == NULL)
 		return;
 	engine->frameStartTime = glfwGetTime();
+	engine->deltaTime = engine->frameStartTime - engine->previousFrameTime;
+	engine->previousFrameTime = engine->frameStartTime;
+}
+
+double glfwEngineGetDeltaTime(const glfwEngine *engine) {
+	if (engine == NULL)
+		return 0.0;
+	return engine->deltaTime;
 }
 
 void glfwEngineFrameEnd(glfwEngine *engine) {

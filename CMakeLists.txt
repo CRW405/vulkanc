@@ -39,7 +39,7 @@ target_include_directories(${APP} PRIVATE
 
 target_compile_options(${APP} PRIVATE -Wall -Wextra -Wpedantic -Werror)
 
-target_link_libraries(${APP} PRIVATE glfw vulkan dl pthread X11 Xxf86vm Xrandr Xi)
+target_link_libraries(${APP} PRIVATE glfw vulkan dl pthread X11 Xxf86vm Xrandr Xi cglm m)
 
 add_dependencies(${APP} compile-shaders)
 

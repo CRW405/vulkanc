@@ -146,8 +146,16 @@ bool vEngineCreateGraphicsPipeline(vEngine *engine, const char *vertexShaderPath
 		.pAttachments = &colorBlendAttachment,
 	};
 
+	VkPushConstantRange pushConstantRange = {
+		.stageFlags = VK_SHADER_STAGE_VERTEX_BIT,
+		.offset = 0,
+		.size = sizeof(float) * 16,
+	};
+
 	VkPipelineLayoutCreateInfo pipelineLayoutInfo = {
 		.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+		.pushConstantRangeCount = 1,
+		.pPushConstantRanges = &pushConstantRange,
 	};
 	if (vkCreatePipelineLayout(engine->device, &pipelineLayoutInfo, NULL, &engine->pipelineLayout) != VK_SUCCESS) {
 		fprintf(stderr, "Failed to create pipeline layout\n");

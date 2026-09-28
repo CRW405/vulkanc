@@ -6,12 +6,28 @@
 
 ## Current TODOs:
 
-- Push constants and transformation matrices.
 - Text rendering.
 - 2D scenes
 - 3D scenes
 
 ## Notes
+
+### Linear Algebra Stuff
+
+#### Model View Projection (MVP)
+
+- Vulkan uses a Normalized Device Coordinate (NDC) space where the x, y, and z coordinates are in the range [-1, 1].
+- Typically 4x4 matrices are used to transform 3D coordinates into 2D screen coordinates.
+
+The MVP matrix is the product of three matrices:
+
+- Model Matrix      - translates, rotates, scales objects in local world
+- View Matrix       - Camera position and orientation
+- Projection Matrix - Applies perspective or orthographic scaling
+
+Typically passed via a push constant - 128 (sometimes 256) bytes of data that allows
+the pushing of small amounts of frequently changing data to the GPU without the overhead
+of a buffer.
 
 ### (Simplified) Vulkan Setup
 

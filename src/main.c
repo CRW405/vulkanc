@@ -1,3 +1,4 @@
+#include "cglm/cglm.h"
 #include "glfwEngine.h"
 #include "vEngine.h"
 
@@ -48,15 +49,27 @@ int main(void) {
 		return EXIT_FAILURE;
 	}
 
+	mat4 transform;
+	glm_mat4_identity(transform);
+	float angle = 0.0f;
+	float deltaAngle = 2.0f;
+
 	// main loop
 	while (!glfwWindowShouldClose(glfw.window)) {
 		glfwEngineFrameStart(&glfw);
+		const float deltaTime = (float)glfwEngineGetDeltaTime(&glfw);
 		glfwPollEvents();
 
 		if (glfwGetKey(glfw.window, GLFW_KEY_ESCAPE) == GLFW_PRESS ||
 		    glfwGetKey(glfw.window, GLFW_KEY_Q) == GLFW_PRESS) {
 			glfwSetWindowShouldClose(glfw.window, GLFW_TRUE);
 		}
+
+		angle += deltaAngle * deltaTime;
+		glm_mat4_identity(transform);
+		glm_rotate(transform, angle, (vec3){ 0.0f, 0.0f, 1.0f });
+		glm_scale(transform, (vec3){ 0.5f, 0.5f, 1.0f });
+		vEngineSetTransform(&engine, transform);
 
 		vEngineDrawFrame(&engine);
 		glfwEngineFrameEnd(&glfw);

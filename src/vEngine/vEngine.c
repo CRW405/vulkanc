@@ -29,6 +29,7 @@ bool vEngineCreate(vEngine *engine, GLFWwindow *window) {
 		return false;
 	engine->window = window;
 	engine->framebufferResized = false;
+	vEngineResetTransform(engine);
 	glfwSetWindowUserPointer(window, engine);
 	glfwSetFramebufferSizeCallback(window, framebufferResizeCallback);
 	if (!vEngineCreateInstance(engine))
@@ -70,6 +71,18 @@ void vEngineSetClearColor(vEngine *engine, float red, float green, float blue, f
 	engine->clearColor.color.float32[1] = green;
 	engine->clearColor.color.float32[2] = blue;
 	engine->clearColor.color.float32[3] = alpha;
+}
+
+void vEngineSetTransform(vEngine *engine, mat4 transform) {
+	if (engine == NULL)
+		return;
+	glm_mat4_copy(transform, engine->transform);
+}
+
+void vEngineResetTransform(vEngine *engine) {
+	if (engine == NULL)
+		return;
+	glm_mat4_identity(engine->transform);
 }
 
 // -----------------------------------------------------------------------------
@@ -144,9 +157,19 @@ void vEngineDrawFrame(vEngine *engine) {
 	    engine->vertexBuffer != VK_NULL_HANDLE && engine->vertexCount > 0) {
 		vkCmdBindPipeline(engine->commandBuffers[frame], VK_PIPELINE_BIND_POINT_GRAPHICS, engine->graphicsPipeline);
 
+		vkCmdPushConstants(
+		    engine->commandBuffers[frame],
+		    engine->pipelineLayout,
+		    VK_SHADER_STAGE_VERTEX_BIT,
+		    0,                  // offset
+		    sizeof(float) * 16, // size
+		    engine->transform    // pointer to matrix
+		);
+
 		VkBuffer vertexBuffers[] = { engine->vertexBuffer };
 		VkDeviceSize offsets[] = { 0 };
 		vkCmdBindVertexBuffers(engine->commandBuffers[frame], 0, 1, vertexBuffers, offsets);
+
 		vkCmdDraw(engine->commandBuffers[frame], engine->vertexCount, 1, 0, 0);
 	}
 
@@ -238,7 +261,7 @@ void vEngineDestroy(vEngine *engine) {
 		}
 		if (engine->commandBuffers != NULL)
 			vkFreeCommandBuffers(engine->device, engine->commandPool,
-					     MAX_FRAMES_IN_FLIGHT, engine->commandBuffers);
+			                     MAX_FRAMES_IN_FLIGHT, engine->commandBuffers);
 		if (engine->commandPool != VK_NULL_HANDLE)
 			vkDestroyCommandPool(engine->device, engine->commandPool, NULL);
 		for (uint32_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
